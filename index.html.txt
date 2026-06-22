@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>簡易自用記帳本</title>
+    <style>
+        :root {
+            --income-color: #2ecc71;
+            --expense-color: #e74c3c;
+            --bg-color: #f5f6fa;
+            --card-bg: #ffffff;
+            --text-color: #2c3e50;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        /* 圓圈圖表樣式 */
+        .chart-box {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            margin: 20px 0;
+        }
+
+        .pie-chart {
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background: conic-gradient(var(--income-color) 0% 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background 0.3s ease;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+        }
+
+        .pie-inner {
+            width: 120px;
+            height: 120px;
+            background: var(--card-bg);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .chart-legend {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .dot-in { width: 12px; height: 12px; background: var(--income-color); border-radius: 50%; }
+        .dot-ex { width: 12px; height: 12px; background: var(--expense-color); border-radius: 50%; }
+
+        /* 表單與輸入 */
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        input:focus, select:focus {
+            border-color: #3498db;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        button:hover { background: #2980b9; }
+
+        /* 分類選擇圖案 */
+        .category-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-top: 5px;
+        }
+
+        .category-item {
+            border: 2px solid #eee;
+            border-radius: 8px;
+            padding: 10px 5px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.8rem;
+        }
+
+        .category-item .icon {
+            font-size: 1.5rem;
+            display: block;
+            margin-bottom: 3px;
+        }
+
+        .category-item.selected {
+            border-color: var(--expense-color);
+            background-color: #fdf2f2;
+        }
+
+        /* 導覽列 */
+        .nav-tabs {
+            display: flex;
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 15px;
+            background: #eee;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            background: none;
+            color: #666;
+            border-radius: 0;
+            font-weight: normal;
+        }
+
+        .tab-btn.active {
+            background: #3498db;
+            color: white;
+            font-weight: bold;
+        }
+
+        .page { display: none; }
+        .page.active { display: block; }
+        
+        .setup-box {
+            background: #e8f4fd;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchPage('dashboard')">主頁圖表</button>
+        <button class="tab-btn" onclick="switchPage('add-expense')">記一筆支出</button>
+        <button class="tab-btn" onclick="switchPage('add-income')">設定收入</button>
+    </div>
+
+    <div class="container" style="padding: 15px; margin-bottom: 10px;">
+        <div class="form-group" style="margin: 0;">
+            <label style="font-size: 0.8rem; color: #7f8c8d;">Google 部署網址 (選填，用於同步試算表)：</label>
+            <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/.../exec" style="padding: 6px; font-size: 0.85rem;">
+        </div>
+    </div>
+
+    <div id="page-dashboard" class="container page active">
+        <h2>本月收支概況</h2>
+        <div class="chart-box">
+            <div class="pie-chart" id="pieChart">
+                <div class="pie-inner">
+                    <span style="font-size: 0.8rem; color: #7f8c8d;">剩餘可花費</span>
+                    <span id="balanceText" style="font-size: 1.3rem; font-weight: bold; margin-top: 2px;">$0</span>
+                </div>
+            </div>
+            <div class="chart-legend">
+                <div class="legend-item"><div class="dot-in"></div> 總收入: $<span id="totalIncomeText">0</span></div>
+                <div class="legend-item"><div class="dot-ex"></div> 總支出: $<span id="totalExpenseText">0</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-add-expense" class="container page">
+        <h2>新增支出細項</h2>
+        <div class="form-group">
+            <label>日期</label>
+            <input type="date" id="expenseDate">
+        </div>
+        <div class="form-group">
+            <label>選擇大方向分類</label>
+            <div class="category-grid">
+                <div class="category-item selected" onclick="selectCategory(this, '飲食', '🍔')">
+                    <span class="icon">🍔</span>飲食
+                </div>
+                <div class="category-item" onclick="selectCategory(this, '交通', '🚗')">
+                    <span class="icon">🚗</span>交通
+                </div>
+                <div class="category-item" onclick="selectCategory(this, '娛樂', '🎮')">
+                    <span class="icon">🎮</span>娛樂
+                </div>
+                <div class="category-item" onclick="selectCategory(this, '藝文', '🎨')">
+                    <span class="icon">🎨</span>藝文
+                </div>
+                <div class="category-item" onclick="selectCategory(this, '日用品', '🧻')">
+                    <span class="icon">🧻</span>日用品
+                </div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>支出項目名稱</label>
+            <input type="text" id="expenseDetail" placeholder="例如：午餐、油錢">
+        </div>
+        <div class="form-group">
+            <label>金額</label>
+            <input type="number" id="expenseAmount" placeholder="請輸入金額" min="0">
+        </div>
+        <button onclick="submitExpense()">確認儲存支出</button>
+    </div>
+
+    <div id="page-add-income" class="container page">
+        <h2>輸入當月收入</h2>
+        <div class="form-group">
+            <label>當月總收入金額</label>
+            <input type="number" id="monthIncome" placeholder="請輸入本月總收入" min="0">
+        </div>
+        <button onclick="submitIncome()">更新收入金額</button>
+    </div>
+
+    <script>
+        // 初始化資料 (優先從瀏覽器本地下載，若無則為0)
+        let appData = {
+            income: parseFloat(localStorage.getItem('local_income')) || 0,
+            expense: parseFloat(localStorage.getItem('local_expense')) || 0
+        };
+
+        // 當前選擇的分類資訊
+        let currentCategory = { name: '飲食', icon: '🍔' };
+
+        // 頁面初始化
+        window.onload = function() {
+            document.getElementById('expenseDate').valueAsDate = new Date();
+            document.getElementById('monthIncome').value = appData.income || '';
+            
+            // 讀取先前儲存的 Google Script URL
+            const savedUrl = localStorage.getItem('google_script_url');
+            if(savedUrl) document.getElementById('scriptUrl').value = savedUrl;
+
+            updateChart();
+        };
+
+        // 切換頁面功能
+        function switchPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            
+            document.getElementById(`page-${pageId}`).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // 選擇分類樣式切換
+        function selectCategory(element, name, icon) {
+            document.querySelectorAll('.category-item').forEach(item => item.classList.remove('selected'));
+            element.classList.add('selected');
+            currentCategory = { name: name, icon: icon };
+        }
+
+        // 更新圓圈圖表與文字
+        function updateChart() {
+            const total = appData.income;
+            const expense = appData.expense;
+            const balance = total - expense;
+
+            document.getElementById('totalIncomeText').innerText = total;
+            document.getElementById('totalExpenseText').innerText = expense;
+            document.getElementById('balanceText').innerText = `$${balance}`;
+
+            // 計算支出比例繪製圓圈
+            let expensePercentage = 0;
+            if (total > 0) {
+                expensePercentage = (expense / total) * 100;
+                if(expensePercentage > 100) expensePercentage = 100; // 避免透支破產爆表
+            } else if (expense > 0) {
+                expensePercentage = 100; // 有支出沒收入，全紅
+            }
+
+            const chart = document.getElementById('pieChart');
+            // conic-gradient 圓圈圖：紅色代表支出佔比，剩餘為綠色收入
+            chart.style.background = `conic-gradient(
+                var(--expense-color) 0% ${expensePercentage}%, 
+                var(--income-color) ${expensePercentage}% 100%
+            )`;
+        }
+
+        // 儲存當月收入
+        function submitIncome() {
+            const incomeInput = parseFloat(document.getElementById('monthIncome').value) || 0;
+            appData.income = incomeInput;
+            localStorage.setItem('local_income', appData.income);
+            
+            updateChart();
+            switchPage('dashboard');
+            alert('收入已更新！');
+        }
+
+        // 儲存支出細項
+        function submitExpense() {
+            const date = document.getElementById('expenseDate').value;
+            const detail = document.getElementById('expenseDetail').value.trim();
+            const amount = parseFloat(document.getElementById('expenseAmount').value) || 0;
+
+            if (!detail || amount <= 0) {
+                alert('請填寫正確的項目名稱與金額！');
+                return;
+            }
+
+            // 更新本地加總
+            appData.expense += amount;
+            localStorage.setItem('local_expense', appData.expense);
+            updateChart();
+
+            // 線上同步到 Google 試算表
+            sendToGoogleSheets(date, currentCategory.icon + currentCategory.name, detail, amount);
+
+            // 清空輸入欄位
+            document.getElementById('expenseDetail').value = '';
+            document.getElementById('expenseAmount').value = '';
+            
+            switchPage('dashboard');
+        }
+
+        // 透過 API 發送資料至 Google App Script
+        function sendToGoogleSheets(date, category, detail, amount) {
+            const scriptUrl = document.getElementById('scriptUrl').value.trim();
+            if (!scriptUrl) {
+                alert('本地已儲存！(若需同步至雲端，請於上方欄位填寫 Google 部署網址)');
+                return;
+            }
+            
+            // 記住網址方便下次使用
+            localStorage.setItem('google_script_url', scriptUrl);
+
+            // 組裝準備發送的資料
+            const urlWithParams = `${scriptUrl}?date=${encodeURIComponent(date)}&category=${encodeURIComponent(category)}&detail=${encodeURIComponent(detail)}&amount=${amount}`;
+
+            // 使用原生 fetch API 發送 GET 請求（跨域免煩惱機制）
+            fetch(urlWithParams, { mode: 'no-cors' })
+            .then(() => {
+                alert('資料已成功同步至 Google 試算表！');
+            })
+            .catch(error => {
+                console.error('同步失敗:', error);
+                alert('同步發生錯誤，請檢查網路或指令碼網址。');
+            });
+        }
+    </script>
+</body>
+</html>
